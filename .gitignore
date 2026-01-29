@@ -1,0 +1,8 @@
+# Ignore everything in this directory
+*
+
+# Except for the .gitignore file itself
+!.gitignore
+
+# And except for the specific file you want to track
+!app.py
