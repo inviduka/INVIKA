@@ -349,23 +349,83 @@ ws.onmessage = (ev) => {
 """
 
 # -------------------- Gemini Logic --------------------
+# def call_gemini_sync(prompt: str) -> str:
+#     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+#     if not api_key:
+#         return "API credentials missing."
+
+#     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+#     system_instruction = "You are INVIKA. Respond efficiently and precisely."
+#     final_prompt = f"{system_instruction}\n\nUser: {prompt}\nINVIKA:"
+#     payload = { "contents":[{"role":"user","parts":[{"text":final_prompt}]}] }
+
+#     try:
+#         r = requests.post(url, params={"key": api_key}, json=payload, timeout=30)
+#         r.raise_for_status()
+#         return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+#     except Exception:
+#         return "Processing error."
+
+# -------------------- Gemini Logic (FIXED) --------------------
+# def call_gemini_sync(prompt: str) -> str:
+#     # 1. Check for API Key
+#     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+#     if not api_key:
+#         print("[ERROR] API Key is missing in .env file.")
+#         return "System configuration error: API Key missing."
+
+#     # 2. Use the STABLE model (1.5-flash instead of 2.5-flash)
+#     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    
+#     system_instruction = "You are INVIKA, a helpful AI assistant. Respond efficiently and precisely."
+#     final_prompt = f"{system_instruction}\n\nUser: {prompt}\nINVIKA:"
+
+#     payload = {
+#         "contents": [{"role": "user", "parts": [{"text": final_prompt}]}]
+#     }
+
+#     try:
+#         r = requests.post(url, params={"key": api_key}, json=payload, timeout=30)
+        
+#         # This will raise an error if the status is 4xx or 5xx
+#         r.raise_for_status()
+        
+#         return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        
+#     except Exception as e:
+#         # 3. PRINT THE ACTUAL ERROR to your terminal for debugging
+#         print(f"\n[GEMINI API ERROR]: {e}")
+#         if hasattr(e, 'response') and e.response is not None:
+#              print(f"[Details]: {e.response.text}")
+             
+#         return "Processing error. Check your server terminal for details."
+
+# -------------------- Gemini Logic (FIXED) --------------------
 def call_gemini_sync(prompt: str) -> str:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        return "API credentials missing."
+        print("[ERROR] API Key is missing.")
+        return "System configuration error: API Key missing."
 
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-    system_instruction = "You are INVIKA. Respond efficiently and precisely."
+    # 👇 CHANGED: Switched to 'gemini-pro' (Most reliable standard model)
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+    
+    system_instruction = "You are INVIKA, a helpful AI assistant. Respond efficiently and precisely."
     final_prompt = f"{system_instruction}\n\nUser: {prompt}\nINVIKA:"
-    payload = { "contents":[{"role":"user","parts":[{"text":final_prompt}]}] }
+
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": final_prompt}]}]
+    }
 
     try:
         r = requests.post(url, params={"key": api_key}, json=payload, timeout=30)
         r.raise_for_status()
         return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception:
-        return "Processing error."
-
+    except Exception as e:
+        print(f"\n[GEMINI API ERROR]: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+             print(f"[Details]: {e.response.text}")
+        return "Processing error. Check server logs."
 # -------------------- routes --------------------
 @app.get("/")
 async def index():
