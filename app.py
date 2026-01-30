@@ -94,12 +94,14 @@ const statusEl = document.getElementById("status");
 const logEl = document.getElementById("log");
 const startBtn = document.getElementById("startBtn");
 
+// Connect WS globally
 const ws = new WebSocket("ws://" + location.host + "/ws");
 
 let recognition = null;
 let listening = false;
 let synthSpeaking = false;
 let wakeActive = false;
+let audioAllowed = false; 
 
 const WAKE_WORD = "hey invika";
 
@@ -118,13 +120,23 @@ function setState(s){
 }
 
 function speak(text){
-  if(!text) return;
+  if(!text || !audioAllowed) return;
+
+  // Stop listening while speaking to avoid hearing ourselves
+  if(listening && recognition) {
+    recognition.stop();
+  }
+  
   synthSpeaking = true;
   setState("speaking");
+  
   const u = new SpeechSynthesisUtterance(text);
   u.onend = () => {
     synthSpeaking = false;
-    setState("listening");
+    // Restart listening after speaking finishes
+    if(recognition) {
+        try { recognition.start(); } catch(e){} 
+    }
   };
   speechSynthesis.cancel();
   speechSynthesis.speak(u);
@@ -134,7 +146,7 @@ function speak(text){
 function initRecognition(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){
-    logMsg("system","SpeechRecognition not supported");
+    logMsg("system","SpeechRecognition not supported (Use Chrome/Edge)");
     return;
   }
 
@@ -149,8 +161,11 @@ function initRecognition(){
 
   recognition.onend = () => {
     listening = false;
+    // Only auto-restart if we aren't currently speaking
     if(!synthSpeaking){
-      setTimeout(()=>recognition.start(),300);
+      setTimeout(() => {
+        try { recognition.start(); } catch(e){}
+      }, 300);
     }
   };
 
@@ -158,10 +173,11 @@ function initRecognition(){
     const text = e.results[e.results.length-1][0].transcript
       .trim().toLowerCase();
 
+    // Wake word logic
     if(!wakeActive){
       if(text.includes(WAKE_WORD)){
         wakeActive = true;
-        speak("Yes. How can I help?");
+        speak("Yes?");
       }
       return;
     }
@@ -172,18 +188,22 @@ function initRecognition(){
   };
 }
 
-/* ---------------- START BUTTON (CRITICAL) ---------------- */
+/* ---------------- START BUTTON ---------------- */
 startBtn.onclick = () => {
-  // unlock browser audio (MANDATORY)
+  audioAllowed = true;
+  
+  // Unlock audio engine
   const u = new SpeechSynthesisUtterance("");
   speechSynthesis.speak(u);
-  speechSynthesis.cancel();
 
   initRecognition();
   recognition.start();
 
   startBtn.remove();
-  logMsg("system","Invika online. Say 'Hey Invika'");
+  
+  // Manual greeting so the user hears it immediately
+  logMsg("system","Invika online.");
+  speak("Invika is online. Say Hey Invika to wake me.");
 };
 
 /* ---------------- websocket ---------------- */
@@ -192,20 +212,145 @@ ws.onopen = () => logMsg("system","Connected");
 ws.onmessage = (ev) => {
   const data = JSON.parse(ev.data);
 
+  // Ignore initial server greeting (since we do it manually on click)
   if(data.type === "greeting"){
-    logMsg("ai", data.text);
-    speak(data.text);
+    // optional: just log it, don't speak it to avoid double talk
+    logMsg("ai", data.text); 
   }
 
   if(data.type === "ai"){
     logMsg("ai", data.text);
     speak(data.text);
-    wakeActive = false;
+    wakeActive = false; // Go back to sleep after answering
   }
 };
 
 ws.onclose = () => logMsg("system","Disconnected");
 </script>
+<script>
+# /* ---------------- state ---------------- */
+# const orb = document.getElementById("orb");
+# const statusEl = document.getElementById("status");
+# const logEl = document.getElementById("log");
+# const startBtn = document.getElementById("startBtn");
+
+# const ws = new WebSocket("ws://" + location.host + "/ws");
+
+# let recognition = null;
+# let listening = false;
+# let synthSpeaking = false;
+# let wakeActive = false;
+# let audioAllowed = false; // <--- FIX: Track if audio is permitted
+
+# const WAKE_WORD = "hey invika";
+
+# /* ---------------- helpers ---------------- */
+# function logMsg(role, text){
+#   const d = document.createElement("div");
+#   d.className = "msg " + role;
+#   d.innerText = role + ": " + text;
+#   logEl.appendChild(d);
+#   logEl.scrollTop = logEl.scrollHeight;
+# }
+
+# function setState(s){
+#   orb.className = "orb " + s;
+#   statusEl.innerText = s || "idle";
+# }
+
+# function speak(text){
+#   if(!text) return;
+#   if(!audioAllowed) return; // <--- FIX: Block audio before user interaction
+  
+#   synthSpeaking = true;
+#   setState("speaking");
+#   const u = new SpeechSynthesisUtterance(text);
+#   u.onend = () => {
+#     synthSpeaking = false;
+#     setState("listening");
+#   };
+#   speechSynthesis.cancel();
+#   speechSynthesis.speak(u);
+# }
+
+# /* ---------------- speech recognition ---------------- */
+# function initRecognition(){
+#   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+#   if(!SR){
+#     logMsg("system","SpeechRecognition not supported");
+#     return;
+#   }
+
+#   recognition = new SR();
+#   recognition.lang = "en-US";
+#   recognition.continuous = true;
+
+#   recognition.onstart = () => {
+#     listening = true;
+#     setState("listening");
+#   };
+
+#   recognition.onend = () => {
+#     listening = false;
+#     if(!synthSpeaking){
+#       setTimeout(()=>recognition.start(),300);
+#     }
+#   };
+
+#   recognition.onresult = (e) => {
+#     const text = e.results[e.results.length-1][0].transcript
+#       .trim().toLowerCase();
+
+#     if(!wakeActive){
+#       if(text.includes(WAKE_WORD)){
+#         wakeActive = true;
+#         speak("Yes. How can I help?");
+#       }
+#       return;
+#     }
+
+#     logMsg("user", text);
+#     ws.send(JSON.stringify({text}));
+#     setState("thinking");
+#   };
+# }
+
+# /* ---------------- START BUTTON (CRITICAL) ---------------- */
+# startBtn.onclick = () => {
+#   audioAllowed = true; // <--- FIX: Enable audio on click
+
+#   // unlock browser audio (MANDATORY)
+#   const u = new SpeechSynthesisUtterance("");
+#   speechSynthesis.speak(u);
+#   speechSynthesis.cancel();
+
+#   initRecognition();
+#   recognition.start();
+
+#   startBtn.remove();
+#   logMsg("system","Invika online. Say 'Hey Invika'");
+# };
+
+# /* ---------------- websocket ---------------- */
+# ws.onopen = () => logMsg("system","Connected");
+
+# ws.onmessage = (ev) => {
+#   const data = JSON.parse(ev.data);
+
+#   if(data.type === "greeting"){
+#     logMsg("ai", data.text);
+#     speak(data.text);
+#   }
+
+#   if(data.type === "ai"){
+#     logMsg("ai", data.text);
+#     speak(data.text);
+#     wakeActive = false;
+#   }
+# };
+
+# ws.onclose = () => logMsg("system","Disconnected");
+# </script>
 </body>
 </html>
 """
