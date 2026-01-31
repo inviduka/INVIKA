@@ -123,9 +123,23 @@ body {
   animation: spin-rev 3s linear infinite;
 }
 
-.reactor.listening .core { box-shadow: 0 0 70px #fff; background: #fff; }
-.reactor.speaking .core { background: #ff4d6d; box-shadow: 0 0 70px #ff4d6d; animation: pulse 0.5s infinite alternate; }
-.reactor.thinking .ring { animation-duration: 0.5s; border-color: #ffc107; }
+/* --- STATES --- */
+.reactor.listening .core { 
+    box-shadow: 0 0 70px #fff; 
+    background: #fff; 
+}
+
+/* UPDATED: SPEAKING STATE IS NOW LIGHT PINK */
+.reactor.speaking .core { 
+    background: #ffb6c1; /* Light Pink */
+    box-shadow: 0 0 70px #ffb6c1; 
+    animation: pulse 0.5s infinite alternate; 
+}
+
+.reactor.thinking .ring { 
+    animation-duration: 0.5s; 
+    border-color: #ffc107; 
+}
 
 #log {
   height: 150px;
@@ -218,18 +232,22 @@ function setState(s){
   statusEl.innerText = s.toUpperCase() || "IDLE";
 }
 
-// --- FIX: Smart URL Handler ---
-function openApp(url){
-  // 1. Force HTTPS if missing (Fixes .app domains failing)
-  if(!url.startsWith("http")){
-    url = "https://" + url;
-  }
-  
-  logMsg("system", "Opening: " + url);
-  speak("Opening external module.");
-  
-  // 2. Open in new tab
-  window.open(url, '_blank');
+// --- UPDATED: Robust URL Handler (Fixes .app) ---
+function openApp(text){
+    // Clean the text to get a raw domain (remove 'open', spaces, etc)
+    let domain = text.replace("open ", "").trim();
+    
+    // Remove all internal spaces (e.g. "vercel . app" -> "vercel.app")
+    domain = domain.replace(/ /g, "");
+
+    // Add protocol if missing
+    if(!domain.startsWith("http")){
+        domain = "https://" + domain;
+    }
+
+    logMsg("system", "OPENING: " + domain);
+    speak("Opening external module.");
+    window.open(domain, '_blank');
 }
 
 /* ---------------- AUDIO ---------------- */
@@ -283,10 +301,11 @@ function initRecognition(){
   recognition.onresult = (e) => {
     let text = e.results[e.results.length-1][0].transcript.trim().toLowerCase();
 
-    // --- FIX: Normalize spoken text (dot/point -> .) ---
+    // --- 1. CLEANUP INPUT ---
+    // Convert "dot" or "point" to "." so "app dot com" becomes "app.com"
     text = text.replace(" dot ", ".").replace(" point ", ".");
 
-    // --- 1. STOP COMMAND ---
+    // --- 2. STOP COMMAND ---
     if(wakeActive && (text === "stop" || text === "go to sleep" || text === "exit")){
         wakeActive = false;
         speak("Going offline. Say hey Invika to wake me.");
@@ -294,18 +313,19 @@ function initRecognition(){
         return;
     }
 
-    // --- 2. MULTIMEDIA COMMANDS ---
-    // A. Specific Hardcoded Shortcuts
-    if(text.includes("open spotify")) { openApp('https://open.spotify.com'); return; }
-    if(text.includes("open google")) { openApp('https://www.google.com'); return; }
-    if(text.includes("open youtube")) { openApp('https://www.youtube.com'); return; }
-    if(text.includes("open linkedin")) { openApp('https://www.linkedin.com'); return; }
-    if(text.includes("open gmail")) { openApp('https://mail.google.com'); return; }
-    if(text.includes("open instagram")) { openApp('https://www.instagram.com'); return; }
-    if(text.includes("open hurryup")) { openApp('https://hurryup-buddy.vercel.app'); return; }
-    if(text.includes("open thinkare")) { openApp('https://thinkare.vercel.app'); return; }
+    // --- 3. MULTIMEDIA COMMANDS (Smart) ---
+    // If text starts with "open" and has a ".", it's likely a website (e.g. "open vercel.app")
+    if(text.startsWith("open ") && text.includes(".")) {
+        openApp(text);
+        return;
+    }
+    
+    // Fallback for common shortcuts without dots
+    if(text === "open spotify") { openApp("spotify.com"); return; }
+    if(text === "open linkedin") { openApp("linkedin.com"); return; }
+    if(text === "open gmail") { openApp("mail.google.com"); return; }
 
-    // --- 3. WAKE LOGIC ---
+    // --- 4. WAKE LOGIC ---
     if(!wakeActive){
       if(text.includes(WAKE_WORD) || text.includes("hey invika")){
         wakeActive = true;
@@ -314,7 +334,7 @@ function initRecognition(){
       return;
     }
 
-    // --- 4. CONVERSATION ---
+    // --- 5. CONVERSATION ---
     logMsg("user", text);
     ws.send(JSON.stringify({text}));
     setState("thinking");
@@ -332,7 +352,7 @@ startBtn.onclick = () => {
 
   startBtn.style.display = 'none';
   logMsg("system","SYSTEM ONLINE. AWAITING INPUT.");
-  speak("Invika online. Say Hey Invika.");
+  speak("Invika online.");
 };
 
 ws.onopen = () => logMsg("system","SERVER CONNECTED");
@@ -348,67 +368,16 @@ ws.onmessage = (ev) => {
 </html>
 """
 
-# -------------------- Gemini Logic --------------------
-# def call_gemini_sync(prompt: str) -> str:
-#     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-#     if not api_key:
-#         return "API credentials missing."
-
-#     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-#     system_instruction = "You are INVIKA. Respond efficiently and precisely."
-#     final_prompt = f"{system_instruction}\n\nUser: {prompt}\nINVIKA:"
-#     payload = { "contents":[{"role":"user","parts":[{"text":final_prompt}]}] }
-
-#     try:
-#         r = requests.post(url, params={"key": api_key}, json=payload, timeout=30)
-#         r.raise_for_status()
-#         return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-#     except Exception:
-#         return "Processing error."
-
-# -------------------- Gemini Logic (FIXED) --------------------
-# def call_gemini_sync(prompt: str) -> str:
-#     # 1. Check for API Key
-#     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-#     if not api_key:
-#         print("[ERROR] API Key is missing in .env file.")
-#         return "System configuration error: API Key missing."
-
-#     # 2. Use the STABLE model (1.5-flash instead of 2.5-flash)
-#     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-    
-#     system_instruction = "You are INVIKA, a helpful AI assistant. Respond efficiently and precisely."
-#     final_prompt = f"{system_instruction}\n\nUser: {prompt}\nINVIKA:"
-
-#     payload = {
-#         "contents": [{"role": "user", "parts": [{"text": final_prompt}]}]
-#     }
-
-#     try:
-#         r = requests.post(url, params={"key": api_key}, json=payload, timeout=30)
-        
-#         # This will raise an error if the status is 4xx or 5xx
-#         r.raise_for_status()
-        
-#         return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-        
-#     except Exception as e:
-#         # 3. PRINT THE ACTUAL ERROR to your terminal for debugging
-#         print(f"\n[GEMINI API ERROR]: {e}")
-#         if hasattr(e, 'response') and e.response is not None:
-#              print(f"[Details]: {e.response.text}")
-             
-#         return "Processing error. Check your server terminal for details."
-
 # -------------------- Gemini Logic (FIXED) --------------------
 def call_gemini_sync(prompt: str) -> str:
+    # 1. Check for API Key
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        print("[ERROR] API Key is missing.")
+        print("[ERROR] API Key is missing in .env file.")
         return "System configuration error: API Key missing."
 
-    # 👇 CHANGED: Switched to 'gemini-pro' (Most reliable standard model)
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+    # 2. Use 1.5-flash (Standard Model)
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     
     system_instruction = "You are INVIKA, a helpful AI assistant. Respond efficiently and precisely."
     final_prompt = f"{system_instruction}\n\nUser: {prompt}\nINVIKA:"
@@ -421,11 +390,15 @@ def call_gemini_sync(prompt: str) -> str:
         r = requests.post(url, params={"key": api_key}, json=payload, timeout=30)
         r.raise_for_status()
         return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        
     except Exception as e:
+        # 3. PRINT ERROR - If you see 404 here, ENABLE API in Google Cloud Console
         print(f"\n[GEMINI API ERROR]: {e}")
         if hasattr(e, 'response') and e.response is not None:
              print(f"[Details]: {e.response.text}")
-        return "Processing error. Check server logs."
+             
+        return "Processing error. Check your server terminal."
+
 # -------------------- routes --------------------
 @app.get("/")
 async def index():
