@@ -2,7 +2,9 @@
 import os
 import asyncio
 import logging
+import json
 import requests
+import re
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -15,7 +17,7 @@ log = logging.getLogger("invika")
 
 app = FastAPI()
 
-# -------------------- INVIKA UI HTML --------------------
+# -------------------- PURE ORB UI HTML --------------------
 HTML = """
 <!doctype html>
 <html>
@@ -23,397 +25,396 @@ HTML = """
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>INVIKA • SYSTEM ONLINE</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 
 <style>
 :root {
   --primary: #00f3ff;
   --secondary: #0066aa;
-  --bg: #050510;
-  --glass: rgba(0, 243, 255, 0.1);
+  --bg: #020205;
+  --pink-glow: #ffb6c1;
+  --error: #ff3333;
 }
 
 body {
-  margin: 0;
-  height: 100vh;
+  margin: 0; padding: 0;
+  height: 100vh; width: 100vw;
   background-color: var(--bg);
   background-image: 
-    radial-gradient(circle at 50% 50%, rgba(0, 50, 100, 0.2) 0%, transparent 60%),
-    linear-gradient(0deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
-  background-size: 100% 100%, 40px 40px, 40px 40px;
+    linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
   color: var(--primary);
   font-family: 'Orbitron', sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
   overflow: hidden;
 }
 
-.hud-container {
-  width: 600px;
-  max-width: 95%;
-  border: 1px solid var(--primary);
-  background: rgba(0, 20, 40, 0.85);
-  box-shadow: 0 0 20px rgba(0, 243, 255, 0.2), inset 0 0 40px rgba(0, 243, 255, 0.1);
-  border-radius: 12px;
-  padding: 30px;
+/* The Core Orb */
+.orb-container {
   position: relative;
-  backdrop-filter: blur(5px);
+  width: 300px; height: 300px;
+  display: flex; align-items: center; justify-content: center;
 }
 
-.corner {
+.orb {
+  width: 140px; height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff, var(--primary));
+  box-shadow: 0 0 60px var(--primary);
+  transition: all 0.4s ease;
+}
+
+.orb-ring {
   position: absolute;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--primary);
-  transition: all 0.3s ease;
-}
-.tl { top: -2px; left: -2px; border-bottom: none; border-right: none; }
-.tr { top: -2px; right: -2px; border-bottom: none; border-left: none; }
-.bl { bottom: -2px; left: -2px; border-top: none; border-right: none; }
-.br { bottom: -2px; right: -2px; border-top: none; border-left: none; }
-
-.reactor-container {
-  display: flex;
-  justify-content: center;
-  margin: 30px 0;
-  position: relative;
-}
-
-.reactor {
-  width: 180px;
-  height: 180px;
+  width: 200px; height: 200px;
   border-radius: 50%;
-  border: 4px solid var(--secondary);
-  box-shadow: 0 0 30px var(--secondary);
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: 2px solid var(--secondary);
+  border-top-color: var(--primary);
+  animation: rotate 3s linear infinite;
 }
 
-.core {
-  width: 90px;
-  height: 90px;
-  background: radial-gradient(circle, #fff, var(--primary));
-  border-radius: 50%;
-  box-shadow: 0 0 40px var(--primary);
-  z-index: 2;
-  transition: all 0.3s;
+/* State Styles */
+.listening .orb { transform: scale(1.1); box-shadow: 0 0 100px #fff; background: #fff; }
+.thinking .orb-ring { animation-duration: 0.8s; border-color: #ffc107; }
+.speaking .orb { 
+  background: radial-gradient(circle, #fff, var(--pink-glow));
+  box-shadow: 0 0 100px var(--pink-glow);
+  animation: pulse 0.6s infinite alternate; 
+}
+.error .orb { background: var(--error); box-shadow: 0 0 80px var(--error); }
+
+/* Floating Response Text */
+#response-text {
+  margin-top: 40px;
+  max-width: 80%;
+  text-align: center;
+  font-size: 18px;
+  height: 60px;
+  text-shadow: 0 0 10px var(--primary);
 }
 
-.ring {
+#status-log {
   position: absolute;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  border-top: 2px solid var(--primary);
-  border-bottom: 2px solid var(--primary);
-  animation: spin 4s linear infinite;
+  bottom: 10px;
+  font-size: 10px;
+  color: #555;
 }
 
-.ring.inner {
-  width: 120px;
-  height: 120px;
-  border: 2px solid transparent;
-  border-left: 2px solid var(--primary);
-  border-right: 2px solid var(--primary);
-  animation: spin-rev 3s linear infinite;
-}
-
-/* --- STATES --- */
-.reactor.listening .core { 
-    box-shadow: 0 0 70px #fff; 
-    background: #fff; 
-}
-
-/* UPDATED: SPEAKING STATE IS NOW LIGHT PINK */
-.reactor.speaking .core { 
-    background: #ffb6c1; /* Light Pink */
-    box-shadow: 0 0 70px #ffb6c1; 
-    animation: pulse 0.5s infinite alternate; 
-}
-
-.reactor.thinking .ring { 
-    animation-duration: 0.5s; 
-    border-color: #ffc107; 
-}
-
-#log {
-  height: 150px;
-  overflow-y: auto;
-  border-top: 1px solid var(--secondary);
-  border-bottom: 1px solid var(--secondary);
+#suggestions {
   margin-top: 20px;
-  padding: 10px;
-  font-size: 14px;
-  font-family: 'Consolas', monospace;
-  background: rgba(0, 0, 0, 0.3);
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary) transparent;
+  display: flex; gap: 10px;
+  opacity: 0; transition: 0.5s;
 }
-.msg.user { color: #aaa; text-align: right; }
-.msg.ai { color: var(--primary); text-shadow: 0 0 5px var(--primary); }
-.msg.system { color: #ffc107; font-size: 12px; text-transform: uppercase; }
+
+.suggest-btn {
+  padding: 10px 20px;
+  background: rgba(0, 243, 255, 0.1);
+  border: 1px solid var(--primary);
+  color: #fff; border-radius: 30px;
+  cursor: pointer; text-decoration: none; font-size: 12px;
+}
 
 #startBtn {
-  width: 100%;
-  padding: 15px;
-  background: var(--primary);
-  color: #000;
-  font-weight: bold;
-  font-size: 18px;
-  border: none;
-  cursor: pointer;
-  text-transform: uppercase;
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-  margin-bottom: 10px;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px 40px;
+  background: var(--primary); color: #000;
+  border: none; font-family: 'Orbitron'; font-weight: 900;
+  font-size: 20px;
+  cursor: pointer; z-index: 100;
+  box-shadow: 0 0 50px var(--primary);
 }
 
-@keyframes spin { 100% { transform: rotate(360deg); } }
-@keyframes spin-rev { 100% { transform: rotate(-360deg); } }
-@keyframes pulse { 100% { transform: scale(1.1); } }
+@keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pulse { from { transform: scale(1); } to { transform: scale(1.1); } }
 </style>
 </head>
 
 <body>
+<button id="startBtn">INITIALIZE SYSTEM</button>
 
-<div class="hud-container">
-  <div class="corner tl"></div><div class="corner tr"></div>
-  <div class="corner bl"></div><div class="corner br"></div>
-
-  <h3 style="text-align:center; letter-spacing: 4px; margin:0 0 10px 0;">I.N.V.I.K.A. INTERFACE</h3>
-  <div style="text-align:center; margin-bottom: 20px; font-size:12px; color:var(--secondary)">
-    STATUS: <span id="status">STANDBY</span>
-  </div>
-
-  <div class="reactor-container">
-    <div id="reactor" class="reactor">
-      <div class="ring"></div>
-      <div class="ring inner"></div>
-      <div class="core"></div>
-    </div>
-  </div>
-
-  <button id="startBtn">INITIALIZE SYSTEM</button>
-
-  <div id="log"></div>
+<div id="orb-container" class="orb-container">
+  <div class="orb-ring"></div>
+  <div id="orb" class="orb"></div>
 </div>
 
+<div id="response-text">AWAITING INITIALIZATION...</div>
+<div id="suggestions"></div>
+<div id="status-log"></div>
+
 <script>
-/* ---------------- CONSTANTS ---------------- */
-const reactor = document.getElementById("reactor");
-const statusEl = document.getElementById("status");
-const logEl = document.getElementById("log");
+const orbCont = document.getElementById("orb-container");
+const responseEl = document.getElementById("response-text");
 const startBtn = document.getElementById("startBtn");
+const suggestBox = document.getElementById("suggestions");
+const statusLog = document.getElementById("status-log");
 
-const ws = new WebSocket("ws://" + location.host + "/ws");
-const WAKE_WORD = "invika"; 
-
+let ws = null;
 let recognition = null;
-let listening = false;
-let synthSpeaking = false;
 let wakeActive = false;
 let audioAllowed = false;
+let isSpeaking = false;
 
-/* ---------------- HELPERS ---------------- */
-function logMsg(role, text){
-  const d = document.createElement("div");
-  d.className = "msg " + role;
-  d.innerText = (role === 'ai' ? 'INVIKA' : role).toUpperCase() + ": " + text;
-  logEl.appendChild(d);
-  logEl.scrollTop = logEl.scrollHeight;
+// --- UTILS ---
+function logStatus(msg) {
+    console.log(msg);
+    statusLog.innerText = msg;
 }
 
-function setState(s){
-  reactor.className = "reactor " + s;
-  statusEl.innerText = s.toUpperCase() || "IDLE";
-}
+function setState(s){ orbCont.className = "orb-container " + s; }
 
-// --- UPDATED: Robust URL Handler (Fixes .app) ---
-function openApp(text){
-    // Clean the text to get a raw domain (remove 'open', spaces, etc)
-    let domain = text.replace("open ", "").trim();
+// --- WEBSOCKET CONNECTION & RECONNECT ---
+function connectWS() {
+    ws = new WebSocket("ws://" + location.host + "/ws");
     
-    // Remove all internal spaces (e.g. "vercel . app" -> "vercel.app")
-    domain = domain.replace(/ /g, "");
+    ws.onopen = () => {
+        logStatus("Connected to Server");
+        if(audioAllowed) responseEl.innerText = "ONLINE";
+    };
 
-    // Add protocol if missing
-    if(!domain.startsWith("http")){
-        domain = "https://" + domain;
-    }
+    ws.onclose = () => {
+        logStatus("Disconnected. Reconnecting...");
+        setState("error");
+        setTimeout(connectWS, 2000); // Retry after 2s
+    };
 
-    logMsg("system", "OPENING: " + domain);
-    speak("Opening external module.");
-    window.open(domain, '_blank');
+    ws.onmessage = (ev) => {
+        try {
+            const data = JSON.parse(ev.data);
+            responseEl.innerText = data.text || "";
+            
+            if(data.type === "open") {
+                speak("Opening " + (data.name || "application"));
+                if(data.url) window.open(data.url, "_blank");
+            } else {
+                speak(data.text);
+            }
+            
+            // --- FIX: SAFE SUGGESTION HANDLING ---
+            if(data.suggestions && Array.isArray(data.suggestions)) {
+                showSuggestions(data.suggestions);
+            }
+        } catch(e) {
+            console.error("WS Error:", e);
+        }
+    };
 }
 
-/* ---------------- AUDIO ---------------- */
+// --- AUDIO OUTPUT (TTS) ---
 function speak(text){
-  if(!text || !audioAllowed) return;
-
-  if(listening && recognition) recognition.stop();
-  
-  synthSpeaking = true;
-  setState("speaking");
-  
-  const u = new SpeechSynthesisUtterance(text);
-  const voices = speechSynthesis.getVoices();
-  const preferred = voices.find(v => v.name.includes("Google US English") || v.name.includes("Microsoft David"));
-  if(preferred) u.voice = preferred;
-  
-  u.onend = () => {
-    synthSpeaking = false;
-    if(recognition) {
-        try { recognition.start(); } catch(e){} 
-    }
-  };
-  speechSynthesis.cancel();
-  speechSynthesis.speak(u);
-}
-
-/* ---------------- SPEECH RECOGNITION ---------------- */
-function initRecognition(){
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){
-    logMsg("system","VOICE MODULE NOT DETECTED");
-    return;
-  }
-
-  recognition = new SR();
-  recognition.lang = "en-US";
-  recognition.continuous = true;
-
-  recognition.onstart = () => {
-    listening = true;
-    setState("listening");
-  };
-
-  recognition.onend = () => {
-    listening = false;
-    if(!synthSpeaking){
-      setTimeout(() => { try { recognition.start(); } catch(e){} }, 300);
-    }
-  };
-
-  recognition.onresult = (e) => {
-    let text = e.results[e.results.length-1][0].transcript.trim().toLowerCase();
-
-    // --- 1. CLEANUP INPUT ---
-    // Convert "dot" or "point" to "." so "app dot com" becomes "app.com"
-    text = text.replace(" dot ", ".").replace(" point ", ".");
-
-    // --- 2. STOP COMMAND ---
-    if(wakeActive && (text === "stop" || text === "go to sleep" || text === "exit")){
-        wakeActive = false;
-        speak("Going offline. Say hey Invika to wake me.");
-        setState("idle");
-        return;
-    }
-
-    // --- 3. MULTIMEDIA COMMANDS (Smart) ---
-    // If text starts with "open" and has a ".", it's likely a website (e.g. "open vercel.app")
-    if(text.startsWith("open ") && text.includes(".")) {
-        openApp(text);
-        return;
-    }
+    if(!audioAllowed || !text) return;
     
-    // Fallback for common shortcuts without dots
-    if(text === "open spotify") { openApp("spotify.com"); return; }
-    if(text === "open linkedin") { openApp("linkedin.com"); return; }
-    if(text === "open gmail") { openApp("mail.google.com"); return; }
-
-    // --- 4. WAKE LOGIC ---
-    if(!wakeActive){
-      if(text.includes(WAKE_WORD) || text.includes("hey invika")){
-        wakeActive = true;
-        speak("Online.");
-      }
-      return;
-    }
-
-    // --- 5. CONVERSATION ---
-    logMsg("user", text);
-    ws.send(JSON.stringify({text}));
-    setState("thinking");
-  };
+    if(recognition) recognition.stop();
+    isSpeaking = true;
+    setState("speaking");
+    
+    const u = new SpeechSynthesisUtterance(text);
+    const voices = speechSynthesis.getVoices();
+    // Try to find a good voice
+    const bestVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Microsoft David"));
+    if(bestVoice) u.voice = bestVoice;
+    
+    u.onend = () => { 
+        isSpeaking = false;
+        // Restart recognition
+        if(wakeActive) setState("listening");
+        else setState("idle");
+        
+        try { recognition.start(); } catch(e){}
+    };
+    
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
 }
 
-/* ---------------- INITIALIZATION ---------------- */
+// --- FIX: ROBUST SUGGESTIONS ---
+function showSuggestions(apps){
+    suggestBox.innerHTML = "";
+    apps.forEach(app => {
+        if(!app) return;
+        const name = app.name || "Link"; // Fallback if name is missing
+        const url = app.url || "#";
+        
+        const a = document.createElement("a");
+        a.className = "suggest-btn";
+        a.innerText = "OPEN " + name.toUpperCase();
+        a.href = url; a.target = "_blank";
+        suggestBox.appendChild(a);
+    });
+    suggestBox.style.opacity = "1";
+}
+
+// --- VOICE INPUT (STT) ---
+function initRecognition(){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR) {
+        responseEl.innerText = "ERROR: Browser does not support Speech API.";
+        return;
+    }
+
+    recognition = new SR();
+    recognition.continuous = true; 
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => { 
+        logStatus("Microphone Active");
+        if(wakeActive) setState("listening");
+    };
+    
+    recognition.onend = () => {
+        logStatus("Mic Stopped. Restarting...");
+        if(audioAllowed && !isSpeaking) {
+            setTimeout(() => { try{ recognition.start(); }catch(e){} }, 200);
+        }
+    };
+
+    recognition.onresult = (e) => {
+        const transcript = e.results[e.results.length-1][0].transcript.trim().toLowerCase();
+        logStatus("Heard: " + transcript);
+
+        if(!wakeActive) {
+            if(transcript.includes("invika") || transcript.includes("hey invika")) {
+                wakeActive = true;
+                speak("I am online.");
+            }
+            return;
+        }
+
+        if(transcript.includes("stop") || transcript.includes("go to sleep")) {
+            wakeActive = false;
+            suggestBox.style.opacity = "0";
+            speak("Going to sleep.");
+            setState("idle");
+            return;
+        }
+
+        setState("thinking");
+        // Only send if WS is open
+        if(ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({text: transcript}));
+        } else {
+            speak("Connection lost. Reconnecting.");
+        }
+    };
+}
+
+// --- STARTUP ---
 startBtn.onclick = () => {
-  audioAllowed = true;
-  const u = new SpeechSynthesisUtterance("Initialized");
-  speechSynthesis.speak(u);
-
-  initRecognition();
-  recognition.start();
-
-  startBtn.style.display = 'none';
-  logMsg("system","SYSTEM ONLINE. AWAITING INPUT.");
-  speak("Invika online.");
-};
-
-ws.onopen = () => logMsg("system","SERVER CONNECTED");
-ws.onmessage = (ev) => {
-  const data = JSON.parse(ev.data);
-  if(data.type === "ai"){
-    logMsg("ai", data.text);
-    speak(data.text);
-  }
+    audioAllowed = true;
+    startBtn.style.display = 'none';
+    responseEl.innerText = "SYSTEM ONLINE. Say 'Hey Invika'";
+    speechSynthesis.speak(new SpeechSynthesisUtterance("")); // Unlock audio
+    
+    connectWS();
+    initRecognition();
+    try { recognition.start(); } catch(e) { console.error(e); }
+    
+    speak("Welcome to Invika world.");
 };
 </script>
 </body>
 </html>
 """
 
-# -------------------- Gemini Logic (FIXED) --------------------
-def call_gemini_sync(prompt: str) -> str:
-    # 1. Check for API Key
+# -------------------- Gemini Logic (FIXED & VALIDATED) --------------------
+def call_gemini_smart(prompt: str) -> dict:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        print("[ERROR] API Key is missing in .env file.")
-        return "System configuration error: API Key missing."
+        print("[ERROR] No API Key Found")
+        return {"type": "chat", "text": "Error: API Key missing."}
 
-    # 2. Use 1.5-flash (Standard Model)
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-    
-    system_instruction = "You are INVIKA, a helpful AI assistant. Respond efficiently and precisely."
-    final_prompt = f"{system_instruction}\n\nUser: {prompt}\nINVIKA:"
-
-    payload = {
-        "contents": [{"role": "user", "parts": [{"text": final_prompt}]}]
-    }
-
-    try:
-        r = requests.post(url, params={"key": api_key}, json=payload, timeout=30)
-        r.raise_for_status()
-        return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+    # Model IDs from your specific screenshot
+    # models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash"]
+    # Model IDs verified from your dashboard screenshots
+    models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash"]
         
-    except Exception as e:
-        # 3. PRINT ERROR - If you see 404 here, ENABLE API in Google Cloud Console
-        print(f"\n[GEMINI API ERROR]: {e}")
-        if hasattr(e, 'response') and e.response is not None:
-             print(f"[Details]: {e.response.text}")
-             
-        return "Processing error. Check your server terminal."
+    system_prompt = """
+    You are INVIKA. 
+    INSTRUCTIONS:
+    1. Respond ONLY in valid JSON. Do not add markdown like ```json.
+    2. Structure: {"type": "chat" or "open", "text": "your reply", "url": "link", "name": "app name", "suggestions": [{"name": "App Name", "url": "URL"}]}
+    
+    APP DICTIONARY:
+    - Thinkare: [https://thinkare.vercel.app](https://thinkare.vercel.app)
+    - Hurryup: [https://hurryup-buddy.vercel.app](https://hurryup-buddy.vercel.app)
+    - YouTube: [https://youtube.com](https://youtube.com)
+    - Google: [https://google.com](https://google.com)
+    - ChatGPT: [https://chatgpt.com](https://chatgpt.com)
+    - GitHub: [https://github.com](https://github.com)
+ 	  - Spotify: [https://spotify.com](https://spotify.com)
+    - Instagram: [https://instagram.com](https://instagram.com)
+    
+    If user mentions ThinKare or Hurryup, YOU MUST include them in the 'suggestions' list.
+    If user says "Open [App]", return type="open".
+    """
+
+    for model in models:
+        # NOTE: Clean URL string, no brackets!
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        
+        payload = {
+            "contents": [{"role": "user", "parts": [{"text": f"{system_prompt}\nUser: {prompt}"}]}]
+        }
+
+        try:
+            r = requests.post(url, params={"key": api_key}, json=payload, timeout=10)
+            
+            if r.status_code != 200:
+                print(f"[API Error] {model} returned {r.status_code}: {r.text}")
+                continue 
+
+            raw = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+            clean = re.sub(r'```json|```', '', raw).strip()
+            
+            data = json.loads(clean)
+            
+            # --- VALIDATE SUGGESTIONS ---
+            # Ensure suggestions have 'name' and 'url' to prevent frontend crash
+            if "suggestions" in data and isinstance(data["suggestions"], list):
+                valid_suggestions = []
+                for s in data["suggestions"]:
+                    if isinstance(s, dict) and "name" in s and "url" in s:
+                        valid_suggestions.append(s)
+                data["suggestions"] = valid_suggestions
+            
+            return data
+
+        except json.JSONDecodeError:
+            return {"type": "chat", "text": clean}
+            
+        except Exception as e:
+            print(f"[Connection Error] {model}: {e}")
+            continue
+
+    return {"type": "chat", "text": "Systems busy. Please try again."}
 
 # -------------------- routes --------------------
 @app.get("/")
-async def index():
-    return HTMLResponse(HTML)
+async def index(): return HTMLResponse(HTML)
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket):
     await ws.accept()
     try:
         while True:
-            msg = await ws.receive_json()
-            text = msg.get("text","").strip()
-            if not text: continue
-            reply = await asyncio.to_thread(call_gemini_sync, text)
-            await ws.send_json({"type":"ai","text":reply})
-    except WebSocketDisconnect:
-        pass
+            # Inner Try-Catch keeps the server running even if one message fails
+            try:
+                msg = await ws.receive_json()
+                text = msg.get("text","").strip()
+                if not text: continue
+                
+                response = await asyncio.to_thread(call_gemini_smart, text)
+                await ws.send_json(response)
+            except WebSocketDisconnect:
+                print("Client disconnected")
+                break
+            except Exception as e:
+                print(f"Message Processing Error: {e}")
+                # Don't break loop, just log
+    except Exception as e:
+        print(f"Critical WebSocket Error: {e}")
 
