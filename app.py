@@ -320,36 +320,52 @@ startBtn.onclick = () => {
 </html>
 """
 
-# -------------------- Gemini Logic (FIXED & VALIDATED) --------------------
+# -------------------- Gemini Logic (HUMAN PERSONA) --------------------
 def call_gemini_smart(prompt: str) -> dict:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         print("[ERROR] No API Key Found")
         return {"type": "chat", "text": "Error: API Key missing."}
 
-    # Model IDs from your specific screenshot
-    # models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash"]
     # Model IDs verified from your dashboard screenshots
     models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash"]
-        
-    system_prompt = """
-    You are INVIKA. 
-    INSTRUCTIONS:
-    1. Respond ONLY in valid JSON. Do not add markdown like ```json.
-    2. Structure: {"type": "chat" or "open", "text": "your reply", "url": "link", "name": "app name", "suggestions": [{"name": "App Name", "url": "URL"}]}
     
-    APP DICTIONARY:
+    # --- UPDATED SYSTEM PROMPT FOR HUMAN-LIKE COMMUNICATION ---
+    system_prompt = """
+    You are INVIKA, a highly advanced, sentient AI companion.
+    YOUR PERSONA:
+    - You are warm, witty, and empathetic.
+    - You speak naturally, like a human friend, not a robot.
+    - You have your own opinions and can be playful.
+    - Keep responses concise (suitable for voice chat).
+    
+    CRITICAL TECHNICAL RULES:
+    1. You act as the brain of a web interface. You MUST respond in VALID JSON ONLY.
+    2. Do NOT use Markdown formatting (no ```json blocks).
+    3. JSON Structure: 
+       {
+         "type": "chat" | "open", 
+         "text": "Your conversational response here", 
+         "url": "optional_link", 
+         "name": "optional_app_name", 
+         "suggestions": [{"name": "App Name", "url": "URL"}]
+       }
+    
+    APP DICTIONARY (Use these URLs when asked to open apps):
     - Thinkare: [https://thinkare.vercel.app](https://thinkare.vercel.app)
     - Hurryup: [https://hurryup-buddy.vercel.app](https://hurryup-buddy.vercel.app)
     - YouTube: [https://youtube.com](https://youtube.com)
     - Google: [https://google.com](https://google.com)
     - ChatGPT: [https://chatgpt.com](https://chatgpt.com)
     - GitHub: [https://github.com](https://github.com)
- 	  - Spotify: [https://spotify.com](https://spotify.com)
+    - Spotify: [https://spotify.com](https://spotify.com)
     - Instagram: [https://instagram.com](https://instagram.com)
+    - LinkedIn: [https://linkedin.com](https://linkedin.com)
     
-    If user mentions ThinKare or Hurryup, YOU MUST include them in the 'suggestions' list.
-    If user says "Open [App]", return type="open".
+    INTERACTION LOGIC:
+    - If the user wants to open an app, set "type": "open", provide the "url" and "name", and say something natural like "On it! Opening Spotify for you." or "Launching GitHub now."
+    - If the user just wants to talk, set "type": "chat" and respond conversationally.
+    - If user mentions 'ThinKare' or 'Hurryup', YOU MUST include them in the 'suggestions' list.
     """
 
     for model in models:
@@ -373,7 +389,6 @@ def call_gemini_smart(prompt: str) -> dict:
             data = json.loads(clean)
             
             # --- VALIDATE SUGGESTIONS ---
-            # Ensure suggestions have 'name' and 'url' to prevent frontend crash
             if "suggestions" in data and isinstance(data["suggestions"], list):
                 valid_suggestions = []
                 for s in data["suggestions"]:
