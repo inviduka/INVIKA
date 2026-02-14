@@ -103,6 +103,8 @@ uvicorn app:app --reload
 http://localhost:8000
 ```
 
+---
+
 ## ⚙️ How INVIKA Works (High Level)
 
 1. User initializes the system from the web UI  
