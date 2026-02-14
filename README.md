@@ -1,19 +1,3 @@
-Excellent—based on your INVIKA app (FastAPI + WebSockets + Gemini + Voice UI), here is a startup-grade, product-focused README.md that positions this as a futuristic AI companion platform, not just a demo.
-
-I’m giving you:
-
-1. ✅ Copy-paste ready README.md content
-
-
-2. 👀 A visual preview (how it will look on GitHub)
-
-
-
-
----
-
-✅ README.md (Copy & Paste)
-
 # 🚀 INVIKA — Your AI Companion, Reimagined
 
 > A futuristic, voice-enabled AI assistant with a real-time interactive UI, powered by FastAPI, WebSockets, and Google Gemini.
