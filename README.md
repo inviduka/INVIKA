@@ -2,15 +2,16 @@
 
 > A futuristic, voice-enabled AI assistant with a real-time interactive UI, powered by FastAPI, WebSockets, and Google Gemini.
 
-INVIKA is not just a chatbot. It’s a **product-style AI companion** with:
-- 🎙️ Voice input (Speech-to-Text)
-- 🔊 Voice output (Text-to-Speech)
-- 🧠 Real-time AI reasoning via Gemini
-- 🌐 Live interactive web interface
-- ⚡ WebSocket-based low-latency communication
-- 🛸 Sci-fi inspired “Orb” UI experience
+INVIKA is not just a chatbot. It’s a **product-style AI companion** designed to feel human, respond in real time, and deliver a next-generation AI interaction experience.
 
-Think **Jarvis-like assistant for the web** — built for speed, experience, and extensibility.
+- 🎙️ Voice input (Speech-to-Text)  
+- 🔊 Voice output (Text-to-Speech)  
+- 🧠 Real-time AI reasoning via Gemini  
+- 🌐 Live interactive web interface  
+- ⚡ WebSocket-based low-latency communication  
+- 🛸 Sci-fi inspired “Orb” UI experience  
+
+Think of INVIKA as a **Jarvis-like assistant for the web** — built for speed, experience, and extensibility.
 
 ---
 
@@ -20,9 +21,9 @@ INVIKA is designed as a **human-like AI companion**:
 - Feels conversational, not robotic  
 - Responds in real time  
 - Can open apps, suggest actions, and guide users  
-- Built to evolve into a full personal productivity & assistant platform  
+- Built to evolve into a full personal productivity and assistant platform  
 
-This is a **startup-style foundation** for:
+This project serves as a **startup-style foundation** for:
 - AI companions  
 - Voice assistants  
 - Smart dashboards  
@@ -33,210 +34,135 @@ This is a **startup-style foundation** for:
 
 ## 🧠 Key Features
 
-- 🎤 **Wake word activation** (“Hey Invika”)
-- 🗣️ **Speech-to-Text** using browser Speech API
-- 🔊 **Text-to-Speech** responses
-- 🔁 **Real-time WebSocket communication**
-- 🌐 **FastAPI backend**
-- 🤖 **Google Gemini integration** (multi-model fallback)
-- 🧩 **Smart app opening system** (YouTube, GitHub, Google, etc.)
-- 💡 **Contextual suggestions UI**
-- 🎨 **Futuristic Orb UI with state animations**
-- 🛡️ Robust error handling & auto-reconnect
+- 🎤 **Wake word activation** (“Hey Invika”)  
+- 🗣️ **Speech-to-Text** using the browser Speech API  
+- 🔊 **Text-to-Speech** responses  
+- 🔁 **Real-time WebSocket communication**  
+- 🌐 **FastAPI backend**  
+- 🤖 **Google Gemini integration** (multi-model fallback)  
+- 🧩 **Smart app opening system** (YouTube, GitHub, Google, etc.)  
+- 💡 **Contextual suggestions UI**  
+- 🎨 **Futuristic Orb UI with state animations**  
+- 🛡️ Robust error handling and auto-reconnect  
 
 ---
 
 ## 🏗️ Tech Stack
 
 **Backend**
-- Python
-- FastAPI
-- WebSockets
-- AsyncIO
+- Python  
+- FastAPI  
+- WebSockets  
+- AsyncIO  
 
 **AI**
-- Google Gemini API (2.5 Flash / Lite / 1.5 Flash fallback)
-- Custom system prompt & persona engine
+- Google Gemini API (2.5 Flash / Lite / 1.5 Flash fallback)  
+- Custom system prompt and persona engine  
 
 **Frontend**
-- HTML, CSS, JavaScript
-- Web Speech API (STT + TTS)
-- Real-time UI state engine
-- Sci-fi animated Orb interface
+- HTML, CSS, JavaScript  
+- Web Speech API (STT + TTS)  
+- Real-time UI state engine  
+- Sci-fi animated Orb interface  
 
 **Infrastructure**
-- Environment-based config (`.env`)
-- Auto-reconnect WebSocket client
-- Modular AI routing logic
+- Environment-based configuration (`.env`)  
+- Auto-reconnect WebSocket client  
+- Modular AI routing logic  
 
 ---
 
-## ⚙️ How It Works (High Level)
+## ⚙️ How INVIKA Works (High Level)
 
-1. User clicks **INITIALIZE SYSTEM**
-2. Browser enables microphone + audio
-3. User says: **“Hey Invika”**
-4. Voice is converted to text
-5. Text is sent via WebSocket to FastAPI
-6. Backend calls **Gemini**
-7. Gemini responds in **strict JSON**
-8. UI:
-   - Speaks the response
-   - Animates the Orb
-   - Shows suggestions / opens apps if needed
-
----
-
-## 🚀 Getting Started
-
-### 1️⃣ Clone the repo
-```bash
-git clone <[INVIKA]-(https://github.com/inviduka/INVIKA)>
-cd invika
-
-2️⃣ Install dependencies
-
-pip install fastapi uvicorn python-dotenv requests
-
-3️⃣ Setup Environment Variables
-
-Create a .env file:
-
-GEMINI_API_KEY=your_api_key_here
-
-(or GOOGLE_API_KEY)
-
-4️⃣ Run the server
-
-uvicorn app:app --reload
-
-5️⃣ Open in browser
-
-http://localhost:8000
-
-Click INITIALIZE SYSTEM and say:
-
-> “Hey Invika”
-
-
-
+1. User initializes the system from the web UI  
+2. The browser enables microphone and audio output  
+3. The user says: **“Hey Invika”**  
+4. Speech is converted to text in the browser  
+5. The text is sent via WebSocket to the FastAPI backend  
+6. The backend calls **Google Gemini**  
+7. Gemini responds in **strict JSON format**  
+8. The UI:
+   - Speaks the response  
+   - Animates the Orb  
+   - Shows suggestions or opens apps when applicable  
 
 ---
 
-🧪 Example Commands
+## 🧪 Example Commands
 
-“Hey Invika, open YouTube”
-
-“Hey Invika, open GitHub”
-
-“Hey Invika, what is FastAPI?”
-
-“Go to sleep”
-
-“Open Spotify”
-
-
+- “Hey Invika, open YouTube”  
+- “Hey Invika, open GitHub”  
+- “Hey Invika, what is FastAPI?”  
+- “Go to sleep”  
+- “Open Spotify”  
 
 ---
 
-🧩 Extensibility Roadmap
+## 🧩 Roadmap & Future Scope
 
-🧠 Memory & user profiles
-
-📱 Mobile-friendly PWA version
-
-🗂️ Plugin system (apps, tools, workflows)
-
-🗣️ Better wake-word detection
-
-🧑‍💼 Productivity mode (tasks, reminders, notes)
-
-🌍 Multi-language support
-
-🔐 Auth & personalization
-
-
+- 🧠 Memory and persistent user profiles  
+- 📱 Mobile-friendly PWA version  
+- 🗂️ Plugin system for apps, tools, and workflows  
+- 🗣️ Improved wake-word detection  
+- 🧑‍💼 Productivity mode (tasks, reminders, notes)  
+- 🌍 Multi-language support  
+- 🔐 Authentication and personalization  
+- ☁️ Cloud deployment and scaling strategy  
 
 ---
 
-🏁 Why This Project Matters
+## 🤝 Collaboration & Contributions
 
-This is not a demo. This is a product foundation for:
+Contributions are **welcome and encouraged** 🚀  
 
-AI companions
+You can contribute by:
+- Adding new features or integrations  
+- Improving UI/UX or animations  
+- Enhancing AI prompts and behaviors  
+- Fixing bugs or improving performance  
+- Writing documentation or examples  
 
-Voice-first interfaces
+**How to collaborate:**
+- Fork the repository  
+- Create a new feature branch  
+- Commit your changes with clear messages  
+- Open a Pull Request with a detailed description  
 
-Real-time AI systems
+All constructive ideas, improvements, and discussions are appreciated.
 
-Next-gen human-computer interaction
+---
 
+## 🏁 Why This Project Matters
+
+INVIKA is not a demo—it is a **product foundation** for:
+- AI companions  
+- Voice-first interfaces  
+- Real-time AI systems  
+- Next-generation human–computer interaction  
 
 It demonstrates:
-
-System design
-
-Real-time architecture
-
-AI orchestration
-
-Product-grade UX thinking
-
-
+- System design and real-time architecture  
+- AI orchestration with modern LLMs  
+- Product-grade UX thinking  
+- End-to-end full stack engineering  
 
 ---
 
-👤 Authors
+## 👤 Authors
 
-Jayanth & Thirupathi
-Founder-minded Full Stack / AI Product Engineers
-
-
----
-
-⭐ Support
-
-If you find this project interesting:
-
-Star ⭐ the repo
-
-Fork 🍴 it
-
-Build on it 🚀
-
-Ship something amazing
-
-
-Let’s build the future of AI interfaces.
+**Jayanth & Thirupathi**  
+Founder-minded Full Stack / AI Product Engineers  
 
 ---
 
-## 👀 Preview (How It Will Look on GitHub)
+## ⭐ Support
 
-**Top Section:**
-> 🚀 INVIKA — Your AI Companion, Reimagined  
-> A futuristic, voice-enabled AI assistant with real-time UI, powered by FastAPI, WebSockets, and Gemini.
+If you find this project valuable:
 
-Then:
-- Clean **feature list**
-- Strong **product vision**
-- Clear **tech stack**
-- Easy **getting started**
-- Impressive **roadmap**
-- Startup-style **positioning**
-- Strong **founder/product narrative**
+- Star ⭐ the repository  
+- Fork 🍴 it  
+- Contribute 🤝  
+- Build on it 🚀  
+- Ship something amazing  
 
-It will read like:
-> This is a serious AI product prototype — not a toy project.
-
----
-
-## 💡 If you want, I can next:
-
-- Rebrand this as a **startup landing README**
-- Add **badges, shields, and metrics**
-- Create a **pitch-style README**
-- Optimize it for **investors / recruiters / GitHub profile**
-- Write a **homepage README + docs structure**
-
-Just tell me your goal: **job, startup, or open-source growth** 🚀
+Let’s build the future of AI interfaces—together.
