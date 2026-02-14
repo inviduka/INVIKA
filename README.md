@@ -72,6 +72,36 @@ This project serves as a **startup-style foundation** for:
 
 ---
 
+### 2️⃣ Create a virtual environment (recommended)
+```bash
+python -m venv venv
+```
+### 3️⃣ Activate the virtual environment
+```
+venv\Scripts\activate - (Windows)
+source venv/bin/activate - (Linux)
+```
+
+### 4️⃣ Install dependencies
+```
+pip install fastapi uvicorn python-dotenv requests
+```
+
+### 5️⃣ Set up environment variables 
+```bash
+GEMINI_API_KEY=your_api_key_here
+```
+
+### 6️⃣ Run the server
+```bash
+uvicorn app:app --reload
+```
+
+### 7️⃣ Open in your browser
+```bash
+http://localhost:8000
+```
+
 ## ⚙️ How INVIKA Works (High Level)
 
 1. User initializes the system from the web UI  
