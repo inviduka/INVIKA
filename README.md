@@ -76,6 +76,7 @@ This project serves as a **startup-style foundation** for:
 ```bash
 python -m venv venv
 ```
+
 ### 3️⃣ Activate the virtual environment
 ```
 venv\Scripts\activate - (Windows)
